@@ -1,12 +1,34 @@
 library(bslib)
 library(dplyr)
 library(ggplot2)
-library(here)
 library(readr)
 library(scales)
 library(shiny)
 
-table_dir <- here::here("outputs", "tables")
+table_candidates <- c(
+  "data",
+  file.path("..", "outputs", "tables"),
+  file.path("outputs", "tables")
+)
+required_tables <- c(
+  "dashboard_cube.csv",
+  "bootstrap_summary.csv",
+  "odds_ratios.csv",
+  "map_cells.csv.gz"
+)
+valid_table_dirs <- vapply(
+  table_candidates,
+  function(path) all(file.exists(file.path(path, required_tables))),
+  logical(1)
+)
+table_dir <- table_candidates[valid_table_dirs][1]
+
+if (is.na(table_dir)) {
+  stop(
+    "Dashboard aggregate tables were not found. Run the app from the repository root or deploy it with scripts/04_deploy_app.R.",
+    call. = FALSE
+  )
+}
 
 dashboard <- read_csv(
   file.path(table_dir, "dashboard_cube.csv"),

@@ -78,6 +78,28 @@ statistics. The spatial tab independently filters the NYC density map by year
 and reported borough. The model and bootstrap tabs show the prespecified
 inferential results.
 
+## Deploy the public dashboard
+
+The deployment script creates a self-contained bundle with only the Shiny app
+and its four aggregate result tables; it never uploads the crash-level source
+file. To publish on [shinyapps.io](https://www.shinyapps.io/):
+
+1. Create a shinyapps.io account and add an account token from the dashboard.
+2. Copy the generated `rsconnect::setAccountInfo(...)` command into a local R
+   console. Do not save the token or secret in this repository.
+3. From the repository root, run:
+
+```r
+install.packages("rsconnect")
+Sys.setenv(SHINYAPPS_ACCOUNT = "your-shinyapps-account-name")
+source("scripts/04_deploy_app.R")
+```
+
+The public URL will follow the form
+`https://your-shinyapps-account-name.shinyapps.io/nyc-crash-injury-risk/`.
+Run the deployment script again whenever the app or committed aggregate tables
+change.
+
 ## Reproduce the full analysis
 
 The project targets R 4.3 or later. From the repository root:

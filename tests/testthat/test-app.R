@@ -1,4 +1,10 @@
 app_path <- testthat::test_path("..", "..", "app", "app.R")
+deploy_path <- testthat::test_path(
+  "..",
+  "..",
+  "scripts",
+  "04_deploy_app.R"
+)
 map_path <- testthat::test_path(
   "..",
   "..",
@@ -9,6 +15,7 @@ map_path <- testthat::test_path(
 
 testthat::test_that("the Shiny application parses", {
   testthat::expect_silent(parse(file = app_path))
+  testthat::expect_silent(parse(file = deploy_path))
 })
 
 testthat::test_that("the committed map aggregate has the app schema", {
