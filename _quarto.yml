@@ -1,0 +1,16 @@
+project:
+  type: default
+
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-tools: true
+    theme: cosmo
+
+execute:
+  echo: true
+  warning: false
+  message: false
+  freeze: auto

@@ -1,0 +1,280 @@
+---
+title: "Injury Risk in New York City Traffic Crashes"
+subtitle: "Time, location, and reported crash outcomes, 2013-2025"
+author: "Hao Yang"
+date: last-modified
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+table_dir <- here::here("outputs", "tables")
+figure_dir <- here::here("outputs", "figures")
+
+read_result <- function(name) {
+  readr::read_csv(
+    file.path(table_dir, name),
+    show_col_types = FALSE
+  )
+}
+
+annual <- read_result("annual_summary.csv")
+borough <- read_result("borough_summary.csv")
+hourly <- read_result("hourly_summary.csv")
+rush <- read_result("rush_summary.csv")
+sample_balance <- read_result("sample_balance.csv")
+bootstrap <- read_result("bootstrap_summary.csv")
+odds_ratios <- read_result("odds_ratios.csv")
+model_fit <- read_result("model_fit.csv")
+
+full_risk <- sample_balance |>
+  dplyr::filter(.data$sample == "Full data")
+rush_risk_difference <- bootstrap |>
+  dplyr::filter(.data$metric == "rush_injury_rate_difference")
+```
+
+## Executive summary
+
+This project asks how crash timing and location are associated with the
+probability that a police-reported New York City crash results in at least one
+injury. It uses 2.13 million crash records from complete calendar years
+2013-2025 and a reproducible 5% sample within each year for computationally
+intensive inference.
+
+Across the analysis period, `r scales::percent(full_risk$injury_rate, accuracy = 0.01)`
+of reported crashes involved at least one injury. The year-stratified bootstrap
+estimate for the rush-hour minus non-rush-hour injury rate difference is
+`r scales::percent(rush_risk_difference$estimate, accuracy = 0.01)`, with a
+percentile interval from `r scales::percent(rush_risk_difference$conf_low, accuracy = 0.01)`
+to `r scales::percent(rush_risk_difference$conf_high, accuracy = 0.01)`.
+
+These are associations within reported crash records. They are not causal
+effects, and they do not measure risk per trip or mile traveled.
+
+## Research question
+
+> How are time of day and borough associated with the probability that a
+> police-reported NYC crash results in at least one injury?
+
+The analysis focuses on one primary binary outcome, `injury_crash`, and uses
+mean injuries per crash as a secondary severity measure. This keeps the
+descriptive summaries, bootstrap estimands, and logistic regression aligned.
+
+## Data and design
+
+The source is NYC Open Data's
+[Motor Vehicle Collisions - Crashes](https://data.cityofnewyork.us/Public-Safety/Motor-Vehicle-Collisions-Crashes/h9gi-nx95)
+table. Each row represents one police-reported crash. The pipeline retrieves
+only variables used in the analysis and caches the official data by calendar
+year.
+
+The cleaning rules are explicit:
+
+1. Deduplicate records by collision ID.
+2. Parse dates and clock times without relying on implicit type conversion.
+3. Retain only complete calendar years 2013-2025.
+4. Preserve missing injury counts instead of silently treating them as zero.
+5. Restrict coordinates to a prespecified NYC bounding box for spatial plots.
+6. Define rush hour before analysis as 7:00-9:59 and 16:00-18:59.
+
+The full data are used for descriptive summaries. Logistic regression and
+bootstrap inference use a 5% random sample within each year with seed 2026.
+Bootstrap resampling is also stratified by year, preserving the observed annual
+sample sizes.
+
+```{r}
+#| label: tbl-sample-balance
+#| echo: false
+
+sample_balance |>
+  dplyr::mutate(
+    injury_rate = scales::percent(.data$injury_rate, accuracy = 0.01),
+    borough_recorded = scales::percent(.data$borough_recorded, accuracy = 0.01),
+    coordinates_valid = scales::percent(.data$coordinates_valid, accuracy = 0.01),
+    mean_injuries = round(.data$mean_injuries, 4)
+  ) |>
+  dplyr::rename(
+    Sample = sample,
+    Crashes = crashes,
+    `Mean injuries` = mean_injuries,
+    `Injury rate` = injury_rate,
+    `Borough recorded` = borough_recorded,
+    `Valid coordinates` = coordinates_valid
+  ) |>
+  knitr::kable(
+    caption = "Full-data and year-stratified sample comparison",
+    format.args = list(big.mark = ",")
+  )
+```
+
+Only `r sum(annual$missing_injury_count)` records in the analysis window have a
+missing total injury count. Although recoding them to zero would have little
+numerical effect here, preserving them as missing avoids an unsupported data
+assumption.
+
+## Annual pattern
+
+```{r}
+#| label: fig-annual
+#| fig-cap: "Annual share of reported crashes with at least one injury."
+#| echo: false
+
+knitr::include_graphics(
+  file.path(figure_dir, "annual_injury_rate.png")
+)
+```
+
+The recorded injury share changes sharply across the study window, especially
+after 2020. That pattern could reflect changes in traffic conditions, crash mix,
+reporting, or data-generating processes. Without exposure data and a research
+design that isolates those mechanisms, the annual series should not be treated
+as the effect of a particular policy or event.
+
+## Time of day
+
+```{r}
+#| label: fig-hourly
+#| fig-cap: "Injury rate by crash hour. Shading marks the prespecified rush-hour windows."
+#| echo: false
+
+knitr::include_graphics(
+  file.path(figure_dir, "hourly_injury_rate.png")
+)
+```
+
+The rush-hour comparison is reported as a difference, with rush hour first.
+A negative value means the observed injury rate or mean injury count is lower
+during the prespecified rush windows.
+
+```{r}
+#| label: tbl-bootstrap
+#| echo: false
+
+metric_labels <- c(
+  mean_injuries = "Mean injuries per crash",
+  injury_rate = "Share with at least one injury",
+  rush_mean_injury_difference = "Rush minus non-rush mean injuries",
+  rush_injury_rate_difference = "Rush minus non-rush injury rate"
+)
+
+bootstrap |>
+  dplyr::filter(.data$metric %in% names(metric_labels)) |>
+  dplyr::mutate(
+    metric = dplyr::recode(.data$metric, !!!metric_labels),
+    dplyr::across(
+      c(estimate, bootstrap_se, conf_low, conf_high),
+      ~ round(.x, 5)
+    )
+  ) |>
+  dplyr::select(
+    Estimand = metric,
+    Estimate = estimate,
+    `Bootstrap SE` = bootstrap_se,
+    `95% CI lower` = conf_low,
+    `95% CI upper` = conf_high
+  ) |>
+  knitr::kable(
+    caption = "Year-stratified bootstrap estimates"
+  )
+```
+
+Traffic speed is one possible explanation for a rush-hour difference, but this
+dataset does not measure speed or congestion. The result therefore remains an
+unadjusted descriptive association.
+
+## Borough pattern
+
+```{r}
+#| label: fig-borough
+#| fig-cap: "Injury rate by borough with year-stratified bootstrap intervals."
+#| echo: false
+
+knitr::include_graphics(
+  file.path(figure_dir, "borough_injury_rate.png")
+)
+```
+
+Borough comparisons are conditional on crashes with a recorded borough. They
+do not adjust for traffic volume, road design, travel mode, speed, or the mix of
+reported crashes. The project therefore avoids attributing the observed
+Manhattan difference to Vision Zero or enforcement without additional evidence.
+
+## Adjusted model
+
+A logistic regression models whether a crash produced at least one injury.
+Predictors are time band, borough, weekend status, and calendar-year fixed
+effects. Midday, Manhattan, weekdays, and 2013 are reference categories.
+
+```{r}
+#| label: fig-model
+#| fig-cap: "Adjusted odds ratios for time, borough, and weekend indicators. Calendar-year fixed effects are not displayed."
+#| echo: false
+
+knitr::include_graphics(
+  file.path(figure_dir, "model_odds_ratios.png")
+)
+```
+
+```{r}
+#| label: tbl-model-fit
+#| echo: false
+
+model_fit |>
+  dplyr::mutate(
+    observations = scales::comma(.data$observations),
+    dplyr::across(c(aic, null_deviance, residual_deviance), ~ round(.x, 1))
+  ) |>
+  dplyr::rename(
+    Observations = observations,
+    AIC = aic,
+    `Null deviance` = null_deviance,
+    `Residual deviance` = residual_deviance
+  ) |>
+  knitr::kable(caption = "Logistic regression fit summary")
+```
+
+The coefficients are adjusted associations, not causal effects. Calendar year
+is treated as a categorical fixed effect so the model does not impose a single
+linear trend over a period with a visibly nonlinear outcome pattern. In-sample
+agreement between fitted and observed borough averages is not presented as
+evidence of out-of-sample calibration.
+
+## Spatial distribution
+
+```{r}
+#| label: fig-map
+#| fig-cap: "Two-dimensional bins summarize crash density without plotting nearly 100,000 overlapping points."
+#| echo: false
+
+knitr::include_graphics(
+  file.path(figure_dir, "crash_density.png")
+)
+```
+
+The density map is descriptive. It shows where reported crashes are
+concentrated, but it cannot identify high-risk locations without a denominator
+such as trips, vehicle miles, pedestrian counts, or road mileage.
+
+## Limitations
+
+1. The data include police-reported crashes and may not represent unreported
+   events.
+2. Exposure is unavailable, so the analysis cannot estimate risk per trip,
+   mile driven, pedestrian, cyclist, or resident.
+3. Borough is missing for a substantial share of records, and missingness may
+   not be random.
+4. Injury counts, locations, and contributing factors may contain reporting or
+   measurement error.
+5. Traffic volume, weather, road design, speed, and vehicle mix are unavailable
+   or not modeled and may confound the reported associations.
+6. A very large sample produces narrow intervals, but precision does not resolve
+   selection, measurement, or causal-identification problems.
+
+## Reproducibility
+
+The repository contains the official API query, local-CSV import route,
+cleaning functions, fixed analysis window, random seed, bootstrap code, model
+specification, unit tests, and scripts needed to rebuild every displayed result.
+Crash-level files are excluded from version control because they are large and
+can be reacquired from the official source.

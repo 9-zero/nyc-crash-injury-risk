@@ -1,0 +1,146 @@
+body {
+  background: #f6f8fb;
+}
+
+.navbar {
+  box-shadow: 0 1px 0 rgba(23, 50, 77, 0.12);
+}
+
+.hero {
+  color: white;
+  background: linear-gradient(120deg, #17324d 0%, #1f5a94 62%, #2a9d8f 100%);
+  margin-bottom: 24px;
+}
+
+.hero-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 42px 26px 38px;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  margin: 0 0 10px;
+}
+
+.hero p {
+  font-size: 1.15rem;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.page-shell {
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+}
+
+.narrow-page {
+  max-width: 860px;
+}
+
+.filter-panel,
+.metric-card,
+.chart-card,
+.text-card {
+  background: white;
+  border: 1px solid #dde5ed;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(23, 50, 77, 0.06);
+}
+
+.filter-panel {
+  padding: 20px;
+}
+
+.filter-note {
+  color: #64778a;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin-top: 20px;
+}
+
+.metric-card {
+  min-height: 144px;
+  margin-bottom: 20px;
+  padding: 20px 22px;
+}
+
+.metric-label {
+  color: #64778a;
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  color: #17324d;
+  font-size: 2.25rem;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  margin-top: 12px;
+}
+
+.metric-note {
+  color: #64778a;
+  font-size: 0.82rem;
+  margin-top: 8px;
+}
+
+.chart-card,
+.text-card {
+  margin-bottom: 22px;
+  padding: 22px;
+}
+
+.text-card {
+  color: #334e68;
+  font-size: 1.02rem;
+  line-height: 1.62;
+}
+
+.text-card h2,
+.text-card h3 {
+  color: #17324d;
+  font-weight: 700;
+}
+
+.text-card blockquote {
+  border-left: 4px solid #2a9d8f;
+  color: #17324d;
+  font-size: 1.2rem;
+  margin: 18px 0 28px;
+  padding: 10px 18px;
+}
+
+.map-card img {
+  display: block;
+  height: auto;
+  margin: 12px auto 0;
+  max-width: 100%;
+}
+
+.btn-default {
+  background: #1f5a94;
+  border-color: #1f5a94;
+  color: white;
+}
+
+@media (max-width: 767px) {
+  .hero-inner {
+    padding: 30px 20px;
+  }
+
+  .page-shell {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .metric-card {
+    min-height: 0;
+  }
+}
