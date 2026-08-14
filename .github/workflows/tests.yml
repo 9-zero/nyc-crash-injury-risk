@@ -22,6 +22,11 @@ jobs:
           r-version: release
           use-public-rspm: true
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libcurl4-openssl-dev libuv1-dev
+
       - name: Install dependencies
         run: Rscript scripts/00_setup.R
 
