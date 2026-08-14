@@ -159,6 +159,8 @@ ui <- navbarPage(
             min = min(dashboard$crash_year),
             max = max(dashboard$crash_year),
             value = range(dashboard$crash_year),
+            step = 1,
+            ticks = FALSE,
             sep = ""
           ),
           selectInput(
