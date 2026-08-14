@@ -1,4 +1,4 @@
-source(file.path("R", "clean.R"))
+source(testthat::test_path("..", "..", "R", "clean.R"))
 
 example_crashes <- tibble::tibble(
   collision_id = c("1", "2", "3"),

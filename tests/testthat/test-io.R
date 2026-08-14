@@ -1,4 +1,4 @@
-source(file.path("R", "io.R"))
+source(testthat::test_path("..", "..", "R", "io.R"))
 
 testthat::test_that("source column names normalize to the API schema", {
   original <- c(

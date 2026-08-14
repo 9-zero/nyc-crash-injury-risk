@@ -1,4 +1,4 @@
-source(file.path("R", "analysis.R"))
+source(testthat::test_path("..", "..", "R", "analysis.R"))
 
 testthat::test_that("rush differences use rush hour first", {
   testthat::expect_equal(
