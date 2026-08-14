@@ -135,4 +135,4 @@ and `analysis/report.qmd` for the complete interpretation and limitations.
 
 ## Author
 
-Hao Yang
+Alex Yang
