@@ -25,7 +25,6 @@ bundle_dir <- tempfile("nyc-crash-shiny-")
 dir.create(bundle_dir, recursive = TRUE)
 dir.create(file.path(bundle_dir, "www"))
 dir.create(file.path(bundle_dir, "data"))
-on.exit(unlink(bundle_dir, recursive = TRUE), add = TRUE)
 
 bundle_files <- c(
   "app/app.R" = "app.R",
@@ -55,13 +54,16 @@ if (!all(copied)) {
   stop("Failed to assemble the deployment bundle.", call. = FALSE)
 }
 
-rsconnect::deployApp(
-  appDir = bundle_dir,
-  appName = "nyc-crash-injury-risk",
-  appTitle = "NYC Crash Injury Risk",
-  account = account,
-  server = "shinyapps.io",
-  appVisibility = "public",
-  recordDir = here::here("app"),
-  launch.browser = TRUE
+tryCatch(
+  rsconnect::deployApp(
+    appDir = bundle_dir,
+    appName = "nyc-crash-injury-risk",
+    appTitle = "NYC Crash Injury Risk",
+    account = account,
+    server = "shinyapps.io",
+    appVisibility = "public",
+    recordDir = here::here("app"),
+    launch.browser = TRUE
+  ),
+  finally = unlink(bundle_dir, recursive = TRUE)
 )
