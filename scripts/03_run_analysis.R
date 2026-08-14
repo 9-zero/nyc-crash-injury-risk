@@ -19,6 +19,7 @@ hourly <- hourly_summary(analysis_data)
 rush <- rush_summary(analysis_data)
 sample_balance <- sample_balance_summary(analysis_data, model_data)
 dashboard_cube <- dashboard_cube_summary(analysis_data)
+map_cells <- map_cell_summary(analysis_data)
 
 injury_model <- fit_injury_model(model_data)
 odds_ratios <- odds_ratio_table(injury_model)
@@ -53,6 +54,10 @@ readr::write_csv(
 readr::write_csv(
   dashboard_cube,
   file.path(table_dir, "dashboard_cube.csv")
+)
+readr::write_csv(
+  map_cells,
+  file.path(table_dir, "map_cells.csv.gz")
 )
 readr::write_csv(odds_ratios, file.path(table_dir, "odds_ratios.csv"))
 readr::write_csv(

@@ -7,7 +7,6 @@ library(scales)
 library(shiny)
 
 table_dir <- here::here("outputs", "tables")
-figure_dir <- here::here("outputs", "figures")
 
 dashboard <- read_csv(
   file.path(table_dir, "dashboard_cube.csv"),
@@ -26,6 +25,23 @@ odds_ratios <- read_csv(
   file.path(table_dir, "odds_ratios.csv"),
   show_col_types = FALSE
 )
+map_cells <- read_csv(
+  file.path(table_dir, "map_cells.csv.gz"),
+  show_col_types = FALSE
+) |>
+  mutate(crash_year = as.integer(.data$crash_year))
+
+nyc_counties <- map_data("county") |>
+  filter(
+    .data$region == "new york",
+    .data$subregion %in% c(
+      "bronx",
+      "kings",
+      "new york",
+      "queens",
+      "richmond"
+    )
+  )
 
 borough_order <- c(
   "MANHATTAN",
@@ -42,6 +58,26 @@ time_order <- c(
   "Evening",
   "Night",
   "Unknown"
+)
+map_years <- sort(unique(map_cells$crash_year), decreasing = TRUE)
+map_year_choices <- c(
+  "All years" = "All",
+  stats::setNames(as.character(map_years), as.character(map_years))
+)
+map_borough_choices <- c(
+  "All boroughs" = "All",
+  "Bronx" = "BRONX",
+  "Brooklyn" = "BROOKLYN",
+  "Manhattan" = "MANHATTAN",
+  "Queens" = "QUEENS",
+  "Staten Island" = "STATEN ISLAND"
+)
+borough_subregions <- c(
+  "BRONX" = "bronx",
+  "BROOKLYN" = "kings",
+  "MANHATTAN" = "new york",
+  "QUEENS" = "queens",
+  "STATEN ISLAND" = "richmond"
 )
 
 theme_dashboard <- function(base_size = 13) {
@@ -176,13 +212,38 @@ ui <- navbarPage(
     "Spatial context",
     div(
       class = "page-shell",
-      div(
-        class = "text-card map-card",
-        tags$h2("Reported crash density across New York City"),
-        tags$p(
-          "Two-dimensional bins avoid the visual overplotting caused by tens of thousands of points. Density is not the same as risk because this dataset has no travel-exposure denominator."
+      sidebarLayout(
+        sidebarPanel(
+          class = "filter-panel",
+          selectInput(
+            "map_year",
+            "Calendar year",
+            choices = map_year_choices,
+            selected = "2025"
+          ),
+          selectInput(
+            "map_borough",
+            "Reported borough",
+            choices = map_borough_choices,
+            selected = "All"
+          ),
+          downloadButton("download_map_data", "Download mapped cells"),
+          tags$p(
+            class = "filter-note",
+            "Each colored cell aggregates nearby crash coordinates. The map shows reported crash density, not risk per trip or mile traveled."
+          )
         ),
-        imageOutput("density_map", height = "auto")
+        mainPanel(
+          fluidRow(
+            column(4, uiOutput("map_crash_card")),
+            column(4, uiOutput("map_rate_card")),
+            column(4, uiOutput("map_cell_card"))
+          ),
+          div(
+            class = "chart-card map-chart-card",
+            plotOutput("density_map", height = 680)
+          )
+        )
       )
     )
   ),
@@ -407,13 +468,183 @@ server <- function(input, output, session) {
       )
   }, striped = TRUE, bordered = FALSE, spacing = "s")
 
-  output$density_map <- renderImage({
+  filtered_map_cells <- reactive({
+    result <- map_cells
+
+    if (input$map_year != "All") {
+      result <- result |>
+        filter(.data$crash_year == as.integer(input$map_year))
+    }
+    if (input$map_borough != "All") {
+      result <- result |>
+        filter(.data$borough == input$map_borough)
+    }
+
+    result |>
+      group_by(.data$cell_longitude, .data$cell_latitude) |>
+      summarise(
+        crashes = sum(.data$crashes),
+        known_injury_outcomes = sum(.data$known_injury_outcomes),
+        injury_crashes = sum(.data$injury_crashes),
+        .groups = "drop"
+      ) |>
+      mutate(
+        injury_rate = .data$injury_crashes / .data$known_injury_outcomes
+      )
+  })
+
+  map_totals <- reactive({
+    result <- filtered_map_cells()
+    validate(need(nrow(result) > 0L, "No mapped crashes match these filters."))
+
+    result |>
+      summarise(
+        crashes = sum(.data$crashes),
+        known_injury_outcomes = sum(.data$known_injury_outcomes),
+        injury_crashes = sum(.data$injury_crashes),
+        occupied_cells = dplyr::n()
+      ) |>
+      mutate(
+        injury_rate = .data$injury_crashes / .data$known_injury_outcomes
+      )
+  })
+
+  map_labels <- reactive({
+    year <- if (input$map_year == "All") "2013-2025" else input$map_year
+    borough <- if (input$map_borough == "All") {
+      "New York City"
+    } else {
+      names(map_borough_choices)[map_borough_choices == input$map_borough]
+    }
+
+    list(year = year, borough = unname(borough))
+  })
+
+  map_limits <- reactive({
+    if (input$map_borough == "All") {
+      return(list(
+        x = c(-74.30, -73.65),
+        y = c(40.45, 40.95)
+      ))
+    }
+
+    boundary <- nyc_counties |>
+      filter(.data$subregion == borough_subregions[[input$map_borough]])
+    x_range <- range(boundary$long, na.rm = TRUE)
+    y_range <- range(boundary$lat, na.rm = TRUE)
+    x_padding <- max(diff(x_range) * 0.10, 0.012)
+    y_padding <- max(diff(y_range) * 0.10, 0.012)
+
     list(
-      src = file.path(figure_dir, "crash_density.png"),
-      contentType = "image/png",
-      alt = "Binned map of reported crash density across New York City"
+      x = x_range + c(-x_padding, x_padding),
+      y = y_range + c(-y_padding, y_padding)
     )
-  }, deleteFile = FALSE)
+  })
+
+  output$map_crash_card <- renderUI({
+    metric_card(
+      "Mapped crashes",
+      comma(map_totals()$crashes),
+      "Records with valid NYC coordinates"
+    )
+  })
+  output$map_rate_card <- renderUI({
+    metric_card(
+      "Injury-producing crashes",
+      percent(map_totals()$injury_rate, accuracy = 0.1),
+      "Among mapped records with a known outcome"
+    )
+  })
+  output$map_cell_card <- renderUI({
+    metric_card(
+      "Occupied map cells",
+      comma(map_totals()$occupied_cells),
+      "Approximately 0.003° coordinate bins"
+    )
+  })
+
+  output$density_map <- renderPlot({
+    plot_data <- filtered_map_cells()
+    labels <- map_labels()
+    limits <- map_limits()
+
+    ggplot() +
+      geom_polygon(
+        data = nyc_counties,
+        aes(x = .data$long, y = .data$lat, group = .data$group),
+        fill = "#E9EFF4",
+        color = "white",
+        linewidth = 0.35
+      ) +
+      geom_tile(
+        data = plot_data,
+        aes(
+          x = .data$cell_longitude,
+          y = .data$cell_latitude,
+          fill = .data$crashes
+        ),
+        width = 0.003,
+        height = 0.003,
+        alpha = 0.88
+      ) +
+      scale_fill_viridis_c(
+        option = "C",
+        trans = "sqrt",
+        begin = 0.08,
+        end = 0.95,
+        labels = label_number(big.mark = ","),
+        guide = guide_colorbar(
+          title.position = "top",
+          barheight = grid::unit(3.2, "cm")
+        )
+      ) +
+      coord_fixed(
+        xlim = limits$x,
+        ylim = limits$y,
+        ratio = 1.3,
+        expand = FALSE
+      ) +
+      labs(
+        title = paste("Reported crash density —", labels$borough),
+        subtitle = paste0(
+          labels$year,
+          "; color encodes the number of reported crashes in each coordinate cell"
+        ),
+        fill = "Crashes"
+      ) +
+      theme_void(base_size = 13) +
+      theme(
+        plot.title = element_text(
+          face = "bold",
+          color = "#17324D",
+          size = 17,
+          margin = margin(b = 5)
+        ),
+        plot.subtitle = element_text(
+          color = "#52677D",
+          margin = margin(b = 14)
+        ),
+        legend.position = "right",
+        legend.title = element_text(face = "bold"),
+        plot.margin = margin(12, 12, 12, 12)
+      )
+  }, res = 120)
+
+  output$download_map_data <- downloadHandler(
+    filename = function() {
+      paste0(
+        "nyc-crash-map-",
+        tolower(gsub(" ", "-", map_labels()$borough)),
+        "-",
+        map_labels()$year,
+        ".csv"
+      )
+    },
+    content = function(file) {
+      filtered_map_cells() |>
+        write_csv(file)
+    }
+  )
 
   output$download_summary <- downloadHandler(
     filename = function() {

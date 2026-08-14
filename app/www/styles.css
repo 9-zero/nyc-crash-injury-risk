@@ -117,10 +117,12 @@ body {
   padding: 10px 18px;
 }
 
-.map-card img {
-  display: block;
-  height: auto;
-  margin: 12px auto 0;
+.map-chart-card {
+  min-height: 720px;
+}
+
+.map-chart-card .shiny-plot-output {
+  margin: 0 auto;
   max-width: 100%;
 }
 

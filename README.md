@@ -43,8 +43,9 @@ resident and does not interpret regression coefficients causally.
 - Year-stratified bootstrap intervals and a logistic model with calendar-year
   fixed effects
 - Publication-ready graphics that emphasize estimands and denominators
-- A filterable Shiny dashboard that runs from a small committed aggregate file
-  rather than requiring the 450MB source file at launch
+- A filterable Shiny dashboard with year and borough controls, including a
+  responsive NYC crash-density map built from committed aggregate cells rather
+  than the 450MB source file
 
 ## Repository map
 
@@ -73,8 +74,9 @@ shiny::runApp("app")
 
 The filters recompute crash counts, injury rates, mean injuries, annual trends,
 borough comparisons, and time-of-day comparisons from additive sufficient
-statistics. The model and bootstrap tabs show the prespecified inferential
-results.
+statistics. The spatial tab independently filters the NYC density map by year
+and reported borough. The model and bootstrap tabs show the prespecified
+inferential results.
 
 ## Reproduce the full analysis
 

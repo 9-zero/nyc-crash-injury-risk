@@ -88,6 +88,45 @@ dashboard_cube_summary <- function(data) {
     )
 }
 
+map_cell_summary <- function(data, cell_size = 0.003) {
+  stopifnot(length(cell_size) == 1L, cell_size > 0)
+
+  longitude_min <- -74.30
+  latitude_min <- 40.45
+
+  data |>
+    dplyr::filter(
+      .data$valid_coordinates,
+      !is.na(.data$longitude),
+      !is.na(.data$latitude)
+    ) |>
+    dplyr::mutate(
+      borough = dplyr::coalesce(as.character(.data$borough), "Not recorded"),
+      cell_longitude = round(
+        floor((.data$longitude - longitude_min) / cell_size) * cell_size +
+          longitude_min + cell_size / 2,
+        6
+      ),
+      cell_latitude = round(
+        floor((.data$latitude - latitude_min) / cell_size) * cell_size +
+          latitude_min + cell_size / 2,
+        6
+      )
+    ) |>
+    dplyr::group_by(
+      .data$crash_year,
+      .data$borough,
+      .data$cell_longitude,
+      .data$cell_latitude
+    ) |>
+    dplyr::summarise(
+      crashes = dplyr::n(),
+      known_injury_outcomes = sum(!is.na(.data$injury_crash)),
+      injury_crashes = sum(.data$injury_crash, na.rm = TRUE),
+      .groups = "drop"
+    )
+}
+
 stratified_sample <- function(data, fraction = 0.05, seed = 2026L) {
   stopifnot(fraction > 0, fraction <= 1)
 

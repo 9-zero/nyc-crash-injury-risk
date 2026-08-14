@@ -31,8 +31,9 @@ official NYC crash table. Names below refer to variables created by
   2013-2025.
 - **Model sample:** a fixed 5% simple random sample within each calendar year,
   using seed 2026.
-- **Dashboard map sample:** at most 5,000 records with valid coordinates per
-  year, also using seed 2026.
+- **Interactive map cells:** all records with valid coordinates, aggregated by
+  calendar year, reported borough, and 0.003-degree coordinate cell. The
+  committed compressed table contains counts rather than crash-level rows.
 
 ## Missing-data rule
 
